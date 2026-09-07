@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import type { BlockType } from '@/types/editor'
 import { useEditorStore } from '@/store/editor'
+import { blockDragValue } from '@/utils/dnd'
 
 const store = useEditorStore()
 const { mode } = storeToRefs(store)
@@ -14,15 +15,17 @@ const groups = [
 
 function onDragStart(event: DragEvent, type: BlockType) {
   if (!event.dataTransfer) return
-  event.dataTransfer.effectAllowed = 'copy'
-  event.dataTransfer.setData('text/plain', type)
+  event.dataTransfer.effectAllowed = 'copyMove'
+  event.dataTransfer.setData('text/plain', blockDragValue(type))
   store.draggingType = type
   store.draggingNodeId = null
 }
 
 function onDragEnd() {
-  store.draggingType = null
-  store.hoverDropId = null
+  window.setTimeout(() => {
+    store.draggingType = null
+    store.hoverDropId = null
+  }, 0)
 }
 </script>
 

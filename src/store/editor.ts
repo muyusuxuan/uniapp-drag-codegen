@@ -5,6 +5,7 @@ import { getMode } from '@/modes/registry'
 import { cloneJson, uid } from '@/utils/helpers'
 import { canHaveChildren, findNode, findParent, insertNode, isDescendant, removeNode } from '@/utils/tree'
 import { defaultPage, defaultTabBar } from '@/modes/uniapp/factory'
+import { parseDragValue } from '@/utils/dnd'
 
 const STORAGE_PREFIX = 'uni-codegen-doc:'
 
@@ -92,9 +93,10 @@ export const useEditorStore = defineStore('editor', () => {
     notify(`已添加「${node.name}」`)
   }
 
-  function dropOn(targetId: string | 'root') {
-    const type = draggingType.value
-    const movingId = draggingNodeId.value
+  function dropOn(targetId: string | 'root', event?: DragEvent) {
+    const parsed = parseDragValue(event?.dataTransfer?.getData('text/plain') || '')
+    const type = draggingType.value ?? (parsed?.kind === 'block' ? parsed.type : null)
+    const movingId = draggingNodeId.value ?? (parsed?.kind === 'node' ? parsed.id : null)
     draggingType.value = null
     draggingNodeId.value = null
     hoverDropId.value = null

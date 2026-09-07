@@ -2,7 +2,8 @@
 import { computed } from 'vue'
 import type { CanvasNode } from '@/types/editor'
 import { useEditorStore } from '@/store/editor'
-import { canHaveChildren } from '@/utils/tree'
+import { canHaveChildren, findParent } from '@/utils/tree'
+import { allowDrop } from '@/utils/dnd'
 
 defineOptions({ name: 'PreviewNode' })
 
@@ -44,17 +45,22 @@ function select(event: Event) {
   store.select({ kind: 'node', id: props.node.id })
 }
 
+function dropTargetId(): string | 'root' {
+  if (canHaveChildren(props.node.type)) return props.node.id
+  const loc = findParent(store.doc.nodes, props.node.id)
+  return loc?.parent?.id ?? 'root'
+}
+
 function onDragOver(event: DragEvent) {
-  if (!canHaveChildren(props.node.type)) return
-  event.preventDefault()
+  allowDrop(event, store.draggingNodeId ? 'move' : 'copy')
   event.stopPropagation()
-  store.hoverDropId = props.node.id
+  store.hoverDropId = dropTargetId()
 }
 
 function onDrop(event: DragEvent) {
   event.preventDefault()
   event.stopPropagation()
-  store.dropOn(props.node.id)
+  store.dropOn(dropTargetId(), event)
 }
 
 function imageSrc(src?: string) {
@@ -70,7 +76,7 @@ const slides = computed(() =>
 <template>
   <div
     class="wrap"
-    :class="{ active, drop: dropTarget }"
+    :class="{ active, drop: dropTarget && canHaveChildren(node.type) }"
     @click="select"
     @dragover="onDragOver"
     @drop="onDrop"

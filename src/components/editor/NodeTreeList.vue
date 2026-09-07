@@ -2,6 +2,7 @@
 import type { CanvasNode } from '@/types/editor'
 import { useEditorStore } from '@/store/editor'
 import { canHaveChildren } from '@/utils/tree'
+import { nodeDragValue } from '@/utils/dnd'
 
 defineOptions({ name: 'NodeTreeList' })
 
@@ -19,7 +20,7 @@ function selected(id: string) {
 function onDragStart(event: DragEvent, id: string) {
   if (!event.dataTransfer) return
   event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('text/plain', id)
+  event.dataTransfer.setData('text/plain', nodeDragValue(id))
   store.draggingNodeId = id
   store.draggingType = null
 }
@@ -34,7 +35,7 @@ function onDragOver(event: DragEvent, node: CanvasNode) {
 function onDrop(event: DragEvent, node: CanvasNode) {
   event.preventDefault()
   event.stopPropagation()
-  store.dropOn(node.id)
+  store.dropOn(node.id, event)
 }
 </script>
 

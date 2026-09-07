@@ -6,6 +6,7 @@ import { getMode } from '@/modes/registry'
 import { useEditorStore } from '@/store/editor'
 import { downloadBlob } from '@/utils/helpers'
 import { zipProjectFiles } from '@/utils/zip'
+import { allowDrop } from '@/utils/dnd'
 import BlockPalette from '@/components/editor/BlockPalette.vue'
 import NodeTree from '@/components/editor/NodeTree.vue'
 import PropertyPanel from '@/components/editor/PropertyPanel.vue'
@@ -78,7 +79,7 @@ async function exportProject() {
       <PropertyPanel />
     </aside>
 
-    <main class="right">
+    <main class="right" @dragover="allowDrop($event, 'copy')" @drop.prevent="store.dropOn('root', $event)">
       <PhonePreview />
     </main>
 

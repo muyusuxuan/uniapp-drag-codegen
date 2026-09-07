@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '@/store/editor'
+import { allowDrop } from '@/utils/dnd'
 import PreviewNode from './PreviewNode.vue'
 
 const store = useEditorStore()
@@ -15,23 +16,27 @@ const clock = computed(() => {
 const navColor = computed(() => (doc.value.page.navigationBarTextStyle === 'white' ? '#fff' : '#111'))
 
 function onDragOver(event: DragEvent) {
-  event.preventDefault()
+  allowDrop(event, store.draggingNodeId ? 'move' : 'copy')
   store.hoverDropId = 'root'
 }
 
 function onDrop(event: DragEvent) {
   event.preventDefault()
-  store.dropOn('root')
+  event.stopPropagation()
+  store.dropOn('root', event)
 }
 
-function onDragLeave() {
+function onDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null
+  const current = event.currentTarget as HTMLElement | null
+  if (current && next && current.contains(next)) return
   if (store.hoverDropId === 'root') store.hoverDropId = null
 }
 </script>
 
 <template>
-  <div class="stage">
-    <div class="phone">
+  <div class="stage" @dragover="onDragOver" @drop="onDrop">
+    <div class="phone" @dragover="onDragOver" @drop="onDrop">
       <div class="bezel">
         <div class="status" :style="{ color: navColor, background: doc.page.navigationBarBackgroundColor }">
           <span>{{ clock }}</span>
@@ -45,6 +50,8 @@ function onDragLeave() {
             background: doc.page.navigationBarBackgroundColor,
           }"
           @click="store.select({ kind: 'page' })"
+          @dragover="onDragOver"
+          @drop="onDrop"
         >
           {{ doc.page.title }}
         </div>
