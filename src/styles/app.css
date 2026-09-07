@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light;
+  --ink: #121826;
+  --muted: #667085;
+  --line: #e6ebf4;
+  --paper: #f3f5fa;
+  --surface: #ffffff;
+  --accent: #2b6cff;
+  --accent-ink: #1639a3;
+  --accent-soft: #e8eeff;
+  --ok: #07c160;
+  --danger: #e5484d;
+  --shadow: 0 12px 40px rgba(18, 24, 38, 0.08);
+  --phone: #111217;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  min-height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+button { cursor: pointer; }
+
+a { color: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cdd5e4; border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
