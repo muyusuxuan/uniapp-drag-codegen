@@ -259,7 +259,12 @@ export const useEditorStore = defineStore('editor', () => {
       hoverDropId.value = null
     }
     pointerDragging.value = false
-    if (dragged) suppressClick = true
+    if (dragged) {
+      suppressClick = true
+      window.setTimeout(() => {
+        suppressClick = false
+      }, 400)
+    }
   }
 
   function consumeClickSuppressed(): boolean {
