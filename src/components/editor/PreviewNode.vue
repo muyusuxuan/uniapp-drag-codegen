@@ -76,6 +76,7 @@ const slides = computed(() =>
 <template>
   <div
     class="wrap"
+    :data-drop-id="node.id"
     :class="{ active, drop: dropTarget && canHaveChildren(node.type) }"
     @click="select"
     @dragover="onDragOver"

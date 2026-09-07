@@ -35,7 +35,7 @@ function onDragLeave(event: DragEvent) {
 </script>
 
 <template>
-  <div class="stage" @dragover="onDragOver" @drop="onDrop">
+  <div class="stage" data-drop-root="true" @dragover="onDragOver" @drop="onDrop">
     <div class="phone" @dragover="onDragOver" @drop="onDrop">
       <div class="bezel">
         <div class="status" :style="{ color: navColor, background: doc.page.navigationBarBackgroundColor }">
@@ -57,6 +57,7 @@ function onDragLeave(event: DragEvent) {
         </div>
         <div
           class="screen"
+          data-drop-id="root"
           :class="{ drop: hoverDropId === 'root' }"
           :style="{ background: doc.page.backgroundColor }"
           @dragover="onDragOver"

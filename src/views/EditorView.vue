@@ -11,6 +11,7 @@ import BlockPalette from '@/components/editor/BlockPalette.vue'
 import NodeTree from '@/components/editor/NodeTree.vue'
 import PropertyPanel from '@/components/editor/PropertyPanel.vue'
 import PhonePreview from '@/components/editor/PhonePreview.vue'
+import DragGhost from '@/components/editor/DragGhost.vue'
 
 const props = defineProps<{ modeId: string }>()
 const route = useRoute()
@@ -41,8 +42,32 @@ function onKey(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
+function onPointerMove(event: PointerEvent | MouseEvent) {
+  if (!store.draggingType && !store.draggingNodeId) return
+  const el = document.elementFromPoint(event.clientX, event.clientY)
+  store.movePointer(event.clientX, event.clientY, el)
+}
+
+function onPointerUp(event: PointerEvent | MouseEvent) {
+  if (!store.draggingType && !store.draggingNodeId && !store.pointerDragging) return
+  const el = document.elementFromPoint(event.clientX, event.clientY)
+  store.endPointer(el)
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('mousemove', onPointerMove)
+  window.addEventListener('mouseup', onPointerUp)
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('mousemove', onPointerMove)
+  window.removeEventListener('mouseup', onPointerUp)
+})
 
 async function exportProject() {
   if (!mode.value) return
@@ -79,11 +104,12 @@ async function exportProject() {
       <PropertyPanel />
     </aside>
 
-    <main class="right" @dragover="allowDrop($event, 'copy')" @drop.prevent="store.dropOn('root', $event)">
+    <main class="right" data-drop-root="true" @dragover="allowDrop($event, 'copy')" @drop.prevent="store.dropOn('root', $event)">
       <PhonePreview />
     </main>
 
     <div v-if="toast" class="toast">{{ toast }}</div>
+    <DragGhost />
   </div>
 </template>
 

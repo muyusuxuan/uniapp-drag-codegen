@@ -5,7 +5,7 @@ import { getMode } from '@/modes/registry'
 import { cloneJson, uid } from '@/utils/helpers'
 import { canHaveChildren, findNode, findParent, insertNode, isDescendant, removeNode } from '@/utils/tree'
 import { defaultPage, defaultTabBar } from '@/modes/uniapp/factory'
-import { parseDragValue } from '@/utils/dnd'
+import { parseDragValue, isBlockType } from '@/utils/dnd'
 
 const STORAGE_PREFIX = 'uni-codegen-doc:'
 
@@ -38,6 +38,12 @@ export const useEditorStore = defineStore('editor', () => {
   const draggingNodeId = ref<string | null>(null)
   const hoverDropId = ref<string | 'root' | null>(null)
   const toast = ref('')
+  const pointerDragging = ref(false)
+  const ghostX = ref(0)
+  const ghostY = ref(0)
+  const pressX = ref(0)
+  const pressY = ref(0)
+  let suppressClick = false
 
   const mode = computed(() => getMode(doc.value.modeId))
   const selectedNode = computed(() => {
@@ -204,6 +210,64 @@ export const useEditorStore = defineStore('editor', () => {
     node.props[key] = value
   }
 
+  function resolveDropId(el: Element | null): string | 'root' | null {
+    if (!el) return null
+    const hit = el.closest('[data-drop-id]') as HTMLElement | null
+    if (hit?.dataset.dropId) {
+      const id = hit.dataset.dropId
+      if (id === 'root') return 'root'
+      const node = findNode(doc.value.nodes, id)
+      if (node && canHaveChildren(node.type)) return id
+      const loc = findParent(doc.value.nodes, id)
+      return loc?.parent?.id ?? 'root'
+    }
+    if (el.closest('[data-drop-root]')) return 'root'
+    return null
+  }
+
+  function beginPointer(kind: 'block' | 'node', value: string, x: number, y: number) {
+    pointerDragging.value = false
+    pressX.value = x
+    pressY.value = y
+    ghostX.value = x
+    ghostY.value = y
+    if (kind === 'block' && isBlockType(value)) {
+      draggingType.value = value
+      draggingNodeId.value = null
+    } else if (kind === 'node') {
+      draggingNodeId.value = value
+      draggingType.value = null
+    }
+  }
+
+  function movePointer(x: number, y: number, el: Element | null) {
+    if (!draggingType.value && !draggingNodeId.value) return
+    ghostX.value = x
+    ghostY.value = y
+    const dist = Math.hypot(x - pressX.value, y - pressY.value)
+    if (dist > 6) pointerDragging.value = true
+    if (pointerDragging.value) hoverDropId.value = resolveDropId(el)
+  }
+
+  function endPointer(el: Element | null) {
+    const target = resolveDropId(el)
+    const dragged = pointerDragging.value
+    if (dragged && target) dropOn(target)
+    else {
+      draggingType.value = null
+      draggingNodeId.value = null
+      hoverDropId.value = null
+    }
+    pointerDragging.value = false
+    if (dragged) suppressClick = true
+  }
+
+  function consumeClickSuppressed(): boolean {
+    if (!suppressClick) return false
+    suppressClick = false
+    return true
+  }
+
   return {
     doc,
     selection,
@@ -211,6 +275,9 @@ export const useEditorStore = defineStore('editor', () => {
     draggingNodeId,
     hoverDropId,
     toast,
+    pointerDragging,
+    ghostX,
+    ghostY,
     mode,
     selectedNode,
     initMode,
@@ -225,6 +292,10 @@ export const useEditorStore = defineStore('editor', () => {
     clearCanvas,
     updateSelectedStyle,
     updateSelectedProp,
+    beginPointer,
+    movePointer,
+    endPointer,
+    consumeClickSuppressed,
     notify,
   }
 })

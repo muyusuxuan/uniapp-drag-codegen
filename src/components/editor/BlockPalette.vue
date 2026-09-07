@@ -2,7 +2,6 @@
 import { storeToRefs } from 'pinia'
 import type { BlockType } from '@/types/editor'
 import { useEditorStore } from '@/store/editor'
-import { blockDragValue } from '@/utils/dnd'
 
 const store = useEditorStore()
 const { mode } = storeToRefs(store)
@@ -13,19 +12,19 @@ const groups = [
   { key: 'structure', title: '结构' },
 ] as const
 
-function onDragStart(event: DragEvent, type: BlockType) {
-  if (!event.dataTransfer) return
-  event.dataTransfer.effectAllowed = 'copyMove'
-  event.dataTransfer.setData('text/plain', blockDragValue(type))
-  store.draggingType = type
-  store.draggingNodeId = null
+function onPointerDown(event: PointerEvent, type: BlockType) {
+  if (event.button !== 0) return
+  store.beginPointer('block', type, event.clientX, event.clientY)
 }
 
-function onDragEnd() {
-  window.setTimeout(() => {
-    store.draggingType = null
-    store.hoverDropId = null
-  }, 0)
+function onMouseDown(event: MouseEvent, type: BlockType) {
+  if (event.button !== 0) return
+  store.beginPointer('block', type, event.clientX, event.clientY)
+}
+
+function onClick(type: BlockType) {
+  if (store.consumeClickSuppressed()) return
+  store.addNode(type)
 }
 </script>
 
@@ -43,10 +42,9 @@ function onDragEnd() {
           :key="block.type"
           type="button"
           class="block"
-          draggable="true"
-          @dragstart="onDragStart($event, block.type)"
-          @dragend="onDragEnd"
-          @click="store.addNode(block.type)"
+          @pointerdown="onPointerDown($event, block.type)"
+          @mousedown="onMouseDown($event, block.type)"
+          @click="onClick(block.type)"
         >
           <span class="icon">{{ block.icon }}</span>
           <span class="label">{{ block.label }}</span>
@@ -75,6 +73,8 @@ h4 { margin: 0 0 8px; font-size: 12px; color: #98a2b3; }
   border-radius: 12px;
   padding: 8px;
   color: var(--ink);
+  user-select: none;
+  touch-action: none;
 }
 .block:hover { border-color: var(--accent); background: var(--accent-soft); }
 .icon {
