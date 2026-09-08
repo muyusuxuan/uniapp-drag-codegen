@@ -4,8 +4,16 @@ export const UNIAPP_BLOCKS: BlockDefinition[] = [
   {
     type: 'view',
     label: '容器',
-    hint: '可嵌套的布局容器',
+    hint: '纵向排列，可嵌套',
     icon: '▢',
+    category: 'layout',
+    canHaveChildren: true,
+  },
+  {
+    type: 'row',
+    label: '横向容器',
+    hint: '一行多个 / 分栏',
+    icon: '⇆',
     category: 'layout',
     canHaveChildren: true,
   },

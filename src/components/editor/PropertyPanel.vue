@@ -2,12 +2,14 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '@/store/editor'
+import { canHaveChildren } from '@/utils/tree'
 import { uid } from '@/utils/helpers'
 
 const store = useEditorStore()
 const { doc, selection, selectedNode } = storeToRefs(store)
 
 const kind = computed(() => selection.value?.kind ?? 'page')
+const isContainer = computed(() => !!selectedNode.value && canHaveChildren(selectedNode.value.type))
 
 function styleModel(key: keyof NonNullable<typeof selectedNode.value>['style']) {
   return computed({
@@ -34,9 +36,14 @@ const borderRadius = styleModel('borderRadius')
 const fontWeight = styleModel('fontWeight')
 const textAlign = styleModel('textAlign')
 const flexDirection = styleModel('flexDirection')
+const flexWrap = styleModel('flexWrap')
 const justifyContent = styleModel('justifyContent')
 const alignItems = styleModel('alignItems')
 const gap = styleModel('gap')
+const flex = styleModel('flex')
+const position = styleModel('position')
+const left = styleModel('left')
+const top = styleModel('top')
 
 const text = propModel('text')
 const src = propModel('src')
@@ -158,11 +165,76 @@ function removeTab(id: string) {
         <label>图片 3<input v-model="src3" /></label>
       </template>
 
+      <h4>尺寸与间距</h4>
       <div class="pair">
-        <label>宽度<input v-model="width" placeholder="100% / 200px" /></label>
-        <label>高度<input v-model="height" placeholder="44px" /></label>
+        <label>宽度<input v-model="width" placeholder="100% / 200px / auto" /></label>
+        <label>高度<input v-model="height" placeholder="44px / auto" /></label>
       </div>
+      <div class="chips">
+        <button type="button" @click="width = 'auto'">自动</button>
+        <button type="button" @click="width = '50%'">50%</button>
+        <button type="button" @click="width = '100%'">100%</button>
+        <button type="button" @click="height = 'auto'">高度自动</button>
+      </div>
+      <label>弹性系数<input v-model="flex" placeholder="1 / 0 0 auto" /></label>
+      <div class="pair">
+        <label>内边距<input v-model="padding" placeholder="12px" /></label>
+        <label>外边距<input v-model="margin" placeholder="0" /></label>
+      </div>
+      <label>圆角<input v-model="borderRadius" placeholder="8px" /></label>
+
+      <template v-if="isContainer">
+        <h4>容器布局</h4>
+        <label>排列方向
+          <select v-model="flexDirection">
+            <option value="">默认</option>
+            <option value="column">纵向</option>
+            <option value="row">横向</option>
+          </select>
+        </label>
+        <label>换行
+          <select v-model="flexWrap">
+            <option value="nowrap">不换行</option>
+            <option value="wrap">换行</option>
+          </select>
+        </label>
+        <label>主轴对齐
+          <select v-model="justifyContent">
+            <option value="">默认</option>
+            <option value="flex-start">起点</option>
+            <option value="center">居中</option>
+            <option value="flex-end">终点</option>
+            <option value="space-between">两端对齐</option>
+            <option value="space-around">均匀分布</option>
+          </select>
+        </label>
+        <label>交叉轴对齐
+          <select v-model="alignItems">
+            <option value="">默认</option>
+            <option value="stretch">拉伸</option>
+            <option value="flex-start">起点</option>
+            <option value="center">居中</option>
+            <option value="flex-end">终点</option>
+          </select>
+        </label>
+        <label>间距<input v-model="gap" placeholder="8px" /></label>
+      </template>
+
+      <h4>定位</h4>
+      <label>定位方式
+        <select v-model="position">
+          <option value="">默认</option>
+          <option value="relative">相对</option>
+          <option value="absolute">绝对</option>
+        </select>
+      </label>
+      <div v-if="position === 'absolute'" class="pair">
+        <label>左侧<input v-model="left" placeholder="0 / 12px" /></label>
+        <label>顶部<input v-model="top" placeholder="0 / 12px" /></label>
+      </div>
+
       <template v-if="selectedNode.type === 'text' || selectedNode.type === 'button' || selectedNode.type === 'navigator' || selectedNode.type === 'input'">
+        <h4>文字</h4>
         <label>字号<input v-model="fontSize" placeholder="16px" /></label>
         <label>文字颜色
           <span class="color">
@@ -186,30 +258,22 @@ function removeTab(id: string) {
           <input v-model="backgroundColor" type="color" />
         </span>
       </label>
-      <div class="pair">
-        <label>内边距<input v-model="padding" placeholder="12px" /></label>
-        <label>外边距<input v-model="margin" placeholder="0" /></label>
-      </div>
-      <label>圆角<input v-model="borderRadius" placeholder="8px" /></label>
-      <template v-if="selectedNode.type === 'view' || selectedNode.type === 'scroll-view'">
-        <label>排列方向
-          <select v-model="flexDirection">
-            <option value="column">纵向</option>
-            <option value="row">横向</option>
-          </select>
-        </label>
-        <label>主轴对齐<input v-model="justifyContent" placeholder="flex-start / center" /></label>
-        <label>交叉轴对齐<input v-model="alignItems" placeholder="stretch / center" /></label>
-        <label>间距<input v-model="gap" placeholder="8px" /></label>
-      </template>
     </div>
   </section>
 </template>
 
 <style scoped>
+.props { min-width: 0; }
 .props h3 { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .props header p { margin: 4px 0 12px; font-size: 13px; font-weight: 700; }
 .fields { display: flex; flex-direction: column; gap: 10px; }
+h4 {
+  margin: 8px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #98a2b3;
+}
 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 input, select {
   border: 1px solid var(--line);
@@ -221,6 +285,16 @@ input, select {
 .color { display: flex; gap: 6px; }
 .color input[type='color'] { width: 42px; padding: 2px; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 99px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.chips button:hover { border-color: var(--accent); color: var(--accent-ink); }
 .tabs { display: flex; flex-direction: column; gap: 8px; }
 .tab-item { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
 .ghost {

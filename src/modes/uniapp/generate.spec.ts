@@ -75,6 +75,39 @@ describe('generateUniProject', () => {
     expect(vue).toContain('type="primary"')
   })
 
+  it('creates 横向容器 with row flex by default', () => {
+    const row = createUniNode('row')
+    expect(row.type).toBe('row')
+    expect(row.style.display).toBe('flex')
+    expect(row.style.flexDirection).toBe('row')
+    expect(row.style.flexWrap).toBe('nowrap')
+  })
+
+  it('emits flex row layout for 横向容器 and nested children', () => {
+    const row = createUniNode('row')
+    row.style.gap = '8px'
+    row.style.flexWrap = 'wrap'
+    const left = createUniNode('button')
+    left.props.text = '左按钮'
+    left.style.flex = '1'
+    const right = createUniNode('button')
+    right.props.text = '右按钮'
+    right.style.flex = '1'
+    row.children = [left, right]
+    const doc = sampleDoc()
+    doc.nodes = [row]
+    const vue = indexPageVue(doc)
+    expect(vue).toContain('<view class=')
+    expect(vue).toContain('左按钮')
+    expect(vue).toContain('右按钮')
+    expect(vue).toContain('display: flex')
+    expect(vue).toContain('flex-direction: row')
+    expect(vue).toContain('flex-wrap: wrap')
+    expect(vue).toContain('gap:')
+    expect(vue).toContain('flex: 1')
+    expect(vue).toMatch(/\.page \{[\s\S]*display: flex;[\s\S]*flex-direction: column/)
+  })
+
   it('escapes text in generated template', () => {
     const text = createUniNode('text')
     text.props.text = '<script>alert(1)</script>'

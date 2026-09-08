@@ -32,7 +32,7 @@ function onClick(type: BlockType) {
   <section class="panel">
     <header>
       <h3>组件库</h3>
-      <p>拖到右侧画布，或点击添加</p>
+      <p>拖到中间画布，或点击添加</p>
     </header>
     <div v-for="group in groups" :key="group.key" class="group">
       <h4>{{ group.title }}</h4>

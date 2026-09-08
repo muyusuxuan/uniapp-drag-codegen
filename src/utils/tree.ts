@@ -56,14 +56,36 @@ export function insertNode(
   }
   const parent = findNode(nodes, parentId)
   if (!parent) return false
+  if (!canHaveChildren(parent.type)) return false
   if (!parent.children) parent.children = []
   const i = index == null ? parent.children.length : Math.max(0, Math.min(index, parent.children.length))
   parent.children.splice(i, 0, node)
   return true
 }
 
+export function moveNodeInTree(
+  nodes: CanvasNode[],
+  id: string,
+  parentId: string | null,
+  index?: number,
+): boolean {
+  if (id === parentId) return false
+  const loc = findParent(nodes, id)
+  if (!loc) return false
+  const node = loc.list[loc.index]
+  if (parentId) {
+    const parent = findNode(nodes, parentId)
+    if (!parent || !canHaveChildren(parent.type) || isDescendant(node, parentId)) return false
+  }
+  loc.list.splice(loc.index, 1)
+  let insertAt = index
+  const sameList = (!parentId && !loc.parent) || (!!parentId && loc.parent?.id === parentId)
+  if (sameList && insertAt != null && loc.index < insertAt) insertAt -= 1
+  return insertNode(nodes, node, parentId, insertAt)
+}
+
 export function canHaveChildren(type: string): boolean {
-  return type === 'view' || type === 'scroll-view'
+  return type === 'view' || type === 'row' || type === 'scroll-view'
 }
 
 export function flattenNodes(nodes: CanvasNode[]): CanvasNode[] {

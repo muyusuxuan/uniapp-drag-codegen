@@ -2,6 +2,7 @@ import type { BlockType } from '@/types/editor'
 
 export const BLOCK_TYPES: BlockType[] = [
   'view',
+  'row',
   'scroll-view',
   'text',
   'button',
