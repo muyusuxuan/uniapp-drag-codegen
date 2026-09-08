@@ -210,6 +210,7 @@ function removeTab(id: string) {
         </label>
         <label>交叉轴对齐
           <select v-model="alignItems">
+            <option value="">默认</option>
             <option value="stretch">拉伸</option>
             <option value="flex-start">起点</option>
             <option value="center">居中</option>

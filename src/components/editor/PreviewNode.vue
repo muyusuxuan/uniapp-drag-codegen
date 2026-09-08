@@ -119,8 +119,14 @@ const slides = computed(() =>
   >
     <template v-if="node.type === 'view' || node.type === 'row' || node.type === 'scroll-view'">
       <PreviewNode v-for="child in node.children" :key="child.id" :node="child" />
-      <p v-if="!node.children?.length" class="slot">
-        {{ node.type === 'scroll-view' ? '滚动区域，拖入子组件' : '拖入子组件' }}
+      <p v-if="!node.children?.length" class="slot" :class="{ row: node.type === 'row' || node.style.flexDirection === 'row' }">
+        {{
+          node.type === 'scroll-view'
+            ? '滚动区域，拖入子组件'
+            : node.type === 'row' || node.style.flexDirection === 'row'
+              ? '横向：拖入多个组件到同一行'
+              : '纵向：拖入子组件'
+        }}
       </p>
     </template>
 
@@ -222,13 +228,25 @@ const slides = computed(() =>
   font-size: 12px;
   text-align: center;
   flex: 1;
-  min-width: 64px;
-  min-height: 36px;
+  min-width: 72px;
+  min-height: 48px;
   display: grid;
   place-items: center;
   pointer-events: none;
   border: 1px dashed #d5def0;
   border-radius: 8px;
+}
+.slot.row {
+  min-height: 64px;
+  border-style: dashed;
+  color: #5b6b8c;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(43, 108, 255, 0.04),
+    rgba(43, 108, 255, 0.04) 48%,
+    transparent 48%,
+    transparent 52%
+  );
 }
 .dots {
   position: absolute;

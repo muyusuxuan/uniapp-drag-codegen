@@ -75,6 +75,14 @@ describe('generateUniProject', () => {
     expect(vue).toContain('type="primary"')
   })
 
+  it('creates 横向容器 with row flex by default', () => {
+    const row = createUniNode('row')
+    expect(row.type).toBe('row')
+    expect(row.style.display).toBe('flex')
+    expect(row.style.flexDirection).toBe('row')
+    expect(row.style.flexWrap).toBe('nowrap')
+  })
+
   it('emits flex row layout for 横向容器 and nested children', () => {
     const row = createUniNode('row')
     row.style.gap = '8px'

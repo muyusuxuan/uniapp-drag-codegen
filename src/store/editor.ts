@@ -99,14 +99,23 @@ export const useEditorStore = defineStore('editor', () => {
     selection.value = next
   }
 
+  function adaptChildForRow(node: CanvasNode) {
+    if (node.style.width === '100%' || !node.style.width) {
+      node.style.width = 'auto'
+      if (!node.style.flex) node.style.flex = '1'
+    }
+  }
+
   function adaptNodeForParent(node: CanvasNode, parentId: string | null) {
     if (!parentId) return
     const parent = findNode(doc.value.nodes, parentId)
     if (!parent || !isRowContainer(parent)) return
-    if (node.style.width === '100%') {
-      node.style.width = 'auto'
-      if (!node.style.flex) node.style.flex = '1'
-    }
+    adaptChildForRow(node)
+  }
+
+  function adaptChildrenToAxis(parent: CanvasNode) {
+    if (!parent.children?.length || !isRowContainer(parent)) return
+    for (const child of parent.children) adaptChildForRow(child)
   }
 
   function addNode(type: BlockType, parentId?: string | null, index?: number) {
@@ -201,6 +210,8 @@ export const useEditorStore = defineStore('editor', () => {
 
   function moveNode(id: string, parentId: string | null, index?: number) {
     if (!moveNodeInTree(doc.value.nodes, id, parentId, index)) return
+    const moved = findNode(doc.value.nodes, id)
+    if (moved) adaptNodeForParent(moved, parentId)
     selection.value = { kind: 'node', id }
   }
 
@@ -263,6 +274,7 @@ export const useEditorStore = defineStore('editor', () => {
     const node = selectedNode.value
     if (!node) return
     node.style[key] = value
+    if (key === 'flexDirection') adaptChildrenToAxis(node)
   }
 
   function updateSelectedProp(key: string, value: string) {

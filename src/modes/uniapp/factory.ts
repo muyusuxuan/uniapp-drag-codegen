@@ -34,7 +34,7 @@ export function createUniNode(type: CanvasNode['type']): CanvasNode {
           padding: '8px',
           display: 'flex',
           flexDirection: 'row',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           alignItems: 'center',
           justifyContent: 'flex-start',
           gap: '8px',
