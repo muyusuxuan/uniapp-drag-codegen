@@ -6,7 +6,7 @@ import { allowDrop } from '@/utils/dnd'
 import PreviewNode from './PreviewNode.vue'
 
 const store = useEditorStore()
-const { doc, hoverDropId } = storeToRefs(store)
+const { doc, hoverDropSlot } = storeToRefs(store)
 
 const clock = computed(() => {
   const d = new Date()
@@ -14,23 +14,26 @@ const clock = computed(() => {
 })
 
 const navColor = computed(() => (doc.value.page.navigationBarTextStyle === 'white' ? '#fff' : '#111'))
+const insideRoot = computed(
+  () => hoverDropSlot.value?.placement === 'inside' && hoverDropSlot.value.refId === 'root',
+)
 
 function onDragOver(event: DragEvent) {
   allowDrop(event, store.draggingNodeId ? 'move' : 'copy')
-  store.hoverDropId = 'root'
+  store.hoverAt(event.clientX, event.clientY, event.target as Element)
 }
 
 function onDrop(event: DragEvent) {
   event.preventDefault()
   event.stopPropagation()
-  store.dropOn('root', event)
+  store.dropAtPoint(event.clientX, event.clientY, event, event.target as Element)
 }
 
 function onDragLeave(event: DragEvent) {
   const next = event.relatedTarget as Node | null
   const current = event.currentTarget as HTMLElement | null
   if (current && next && current.contains(next)) return
-  if (store.hoverDropId === 'root') store.hoverDropId = null
+  if (store.hoverDropSlot?.refId === 'root') store.hoverDropSlot = null
 }
 </script>
 
@@ -50,15 +53,13 @@ function onDragLeave(event: DragEvent) {
             background: doc.page.navigationBarBackgroundColor,
           }"
           @click="store.select({ kind: 'page' })"
-          @dragover="onDragOver"
-          @drop="onDrop"
         >
           {{ doc.page.title }}
         </div>
         <div
           class="screen"
           data-drop-id="root"
-          :class="{ drop: hoverDropId === 'root' }"
+          :class="{ drop: insideRoot }"
           :style="{ background: doc.page.backgroundColor }"
           @dragover="onDragOver"
           @drop="onDrop"
@@ -67,7 +68,7 @@ function onDragLeave(event: DragEvent) {
         >
           <div v-if="!doc.nodes.length" class="empty">
             <strong>将组件拖到这里</strong>
-            <span>或点击左侧组件添加</span>
+            <span>可精确插入到行/列的前后或容器内</span>
           </div>
           <PreviewNode v-for="node in doc.nodes" :key="node.id" :node="node" />
         </div>

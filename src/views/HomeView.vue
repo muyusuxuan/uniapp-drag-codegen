@@ -21,8 +21,8 @@ function enter(modeId: string, available: boolean) {
         </div>
       </div>
       <p class="lead">
-        从左侧组件库拖入按钮、文本、图片、容器与底部标签栏，右侧手机框实时预览。
-        导出即可得到可在 HBuilderX / CLI 打开的 Vue3 uni-app 项目。
+        左侧选组件，中间手机画布实时预览并可直接拖拽排序与嵌套，右侧编辑属性。
+        用横向容器即可让多个组件排在同一行。导出即可得到可在 HBuilderX / CLI 打开的 Vue3 uni-app 项目。
       </p>
     </header>
 

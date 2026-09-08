@@ -15,6 +15,28 @@ export function createUniNode(type: CanvasNode['type']): CanvasNode {
           padding: '12px',
           display: 'flex',
           flexDirection: 'column',
+          flexWrap: 'nowrap',
+          gap: '8px',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+        },
+        children: [],
+      }
+    case 'row':
+      return {
+        id,
+        type,
+        name: '横向容器',
+        props: {},
+        style: {
+          width: '100%',
+          minHeight: '56px',
+          padding: '8px',
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
           gap: '8px',
           backgroundColor: '#ffffff',
           borderRadius: '12px',
@@ -31,6 +53,9 @@ export function createUniNode(type: CanvasNode['type']): CanvasNode {
           width: '100%',
           height: '180px',
           padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
           backgroundColor: '#f7f8fa',
           borderRadius: '12px',
           overflow: 'auto',
@@ -165,20 +190,53 @@ export function createUniExample(): Pick<EditorDocument, 'page' | 'nodes' | 'tab
   title.style.color = '#111827'
 
   const subtitle = createUniNode('text')
-  subtitle.props.text = '从左侧拖入组件，右侧预览会实时更新。选中组件后可编辑尺寸、颜色与文案。'
+  subtitle.props.text = '左侧拖组件，中间画布可直接拖拽排序与嵌套，右侧改属性。横向容器可让多个组件排在同一行。'
   subtitle.style.fontSize = '13px'
   subtitle.style.color = '#667085'
 
   const banner = createUniNode('image')
   banner.style.height = '148px'
 
+  const cols = createUniNode('row')
+  cols.style.alignItems = 'stretch'
+  const colA = createUniNode('view')
+  colA.style.width = 'auto'
+  colA.style.flex = '1'
+  colA.style.backgroundColor = '#eef6ff'
+  const textA = createUniNode('text')
+  textA.props.text = '热卖专区'
+  textA.style.fontSize = '14px'
+  textA.style.fontWeight = '700'
+  colA.children = [textA]
+  const colB = createUniNode('view')
+  colB.style.width = 'auto'
+  colB.style.flex = '1'
+  colB.style.backgroundColor = '#f3eefc'
+  const textB = createUniNode('text')
+  textB.props.text = '新品上市'
+  textB.style.fontSize = '14px'
+  textB.style.fontWeight = '700'
+  colB.children = [textB]
+  cols.children = [colA, colB]
+
+  const actions = createUniNode('row')
   const btn = createUniNode('button')
   btn.props.text = '立即体验'
+  btn.style.width = 'auto'
+  btn.style.flex = '1'
+  const more = createUniNode('button')
+  more.props.text = '了解更多'
+  more.props.buttonType = 'default'
+  more.style.width = 'auto'
+  more.style.flex = '1'
+  more.style.backgroundColor = '#e8eef8'
+  more.style.color = '#1c2333'
+  actions.children = [btn, more]
 
   const cell = createUniNode('navigator')
   cell.props.text = '个人中心'
 
-  hero.children = [title, subtitle, banner, btn, cell]
+  hero.children = [title, subtitle, banner, cols, actions, cell]
 
   const tabBar = defaultTabBar()
   tabBar.enabled = true

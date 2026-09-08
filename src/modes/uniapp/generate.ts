@@ -8,10 +8,13 @@ const KEYWORD_STYLE_KEYS = new Set<keyof NodeStyle>([
   'fontWeight',
   'display',
   'flexDirection',
+  'flexWrap',
   'justifyContent',
   'alignItems',
   'textAlign',
   'overflow',
+  'flex',
+  'position',
 ])
 
 export function toUniCssValue(raw: string | undefined): string | undefined {
@@ -39,6 +42,8 @@ function styleToDeclarations(style: NodeStyle): string[] {
   const map: Array<[keyof NodeStyle, string]> = [
     ['width', 'width'],
     ['height', 'height'],
+    ['minWidth', 'min-width'],
+    ['minHeight', 'min-height'],
     ['padding', 'padding'],
     ['margin', 'margin'],
     ['backgroundColor', 'background-color'],
@@ -51,10 +56,15 @@ function styleToDeclarations(style: NodeStyle): string[] {
     ['border', 'border'],
     ['display', 'display'],
     ['flexDirection', 'flex-direction'],
+    ['flexWrap', 'flex-wrap'],
     ['justifyContent', 'justify-content'],
     ['alignItems', 'align-items'],
     ['gap', 'gap'],
+    ['flex', 'flex'],
     ['overflow', 'overflow'],
+    ['position', 'position'],
+    ['left', 'left'],
+    ['top', 'top'],
   ]
   const parts: string[] = []
   for (const [key, cssKey] of map) {
@@ -122,6 +132,7 @@ export function compileNode(node: CanvasNode, level: number): string {
       const inner = (node.children ?? []).map((child) => compileNode(child, level + 1)).join('\n')
       return `${i}<scroll-view class="${cls}" scroll-y>\n${inner}\n${i}</scroll-view>`
     }
+    case 'row':
     case 'view':
     default: {
       const inner = (node.children ?? []).map((child) => compileNode(child, level + 1)).join('\n')
@@ -130,10 +141,21 @@ export function compileNode(node: CanvasNode, level: number): string {
   }
 }
 
+function ensureContainerLayout(node: CanvasNode, decls: string[]): void {
+  const isContainer = node.type === 'view' || node.type === 'row' || node.type === 'scroll-view'
+  if (!isContainer) return
+  const joined = decls.join(' ')
+  if (!node.style.display && !joined.includes('display:')) decls.unshift('display: flex;')
+  if (!node.style.flexDirection && !joined.includes('flex-direction:')) {
+    decls.push(node.type === 'row' ? 'flex-direction: row;' : 'flex-direction: column;')
+  }
+}
+
 function compileStyles(nodes: CanvasNode[]): string {
   const lines: string[] = []
   for (const node of flattenNodes(nodes)) {
     const decls = styleToDeclarations(node.style)
+    ensureContainerLayout(node, decls)
     if (node.type === 'navigator') {
       decls.push('display: flex;', 'align-items: center;', 'justify-content: space-between;', 'box-sizing: border-box;')
     }
@@ -221,6 +243,9 @@ ${body}
   box-sizing: border-box;
   background-color: ${bg};
   padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
 .empty {
   padding: 80rpx 32rpx;

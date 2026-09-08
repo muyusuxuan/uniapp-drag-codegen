@@ -2,18 +2,25 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useEditorStore } from '@/store/editor'
+import { findNode } from '@/utils/tree'
 
 const store = useEditorStore()
-const { pointerDragging, draggingType, ghostX, ghostY, mode } = storeToRefs(store)
+const { pointerDragging, draggingType, draggingNodeId, ghostX, ghostY, mode, doc } = storeToRefs(store)
 
-const label = computed(
-  () => mode.value?.blocks.find((b) => b.type === draggingType.value)?.label ?? '组件',
-)
+const label = computed(() => {
+  if (draggingType.value) {
+    return mode.value?.blocks.find((b) => b.type === draggingType.value)?.label ?? '组件'
+  }
+  if (draggingNodeId.value) {
+    return findNode(doc.value.nodes, draggingNodeId.value)?.name ?? '组件'
+  }
+  return '组件'
+})
 </script>
 
 <template>
   <div
-    v-if="pointerDragging && draggingType"
+    v-if="pointerDragging && (draggingType || draggingNodeId)"
     class="ghost"
     :style="{ left: `${ghostX + 12}px`, top: `${ghostY + 12}px` }"
   >

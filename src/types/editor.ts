@@ -1,5 +1,6 @@
 export type BlockType =
   | 'view'
+  | 'row'
   | 'scroll-view'
   | 'text'
   | 'button'
@@ -12,6 +13,8 @@ export type BlockType =
 export interface NodeStyle {
   width?: string
   height?: string
+  minWidth?: string
+  minHeight?: string
   padding?: string
   margin?: string
   backgroundColor?: string
@@ -24,10 +27,45 @@ export interface NodeStyle {
   border?: string
   display?: string
   flexDirection?: string
+  flexWrap?: string
   justifyContent?: string
   alignItems?: string
   gap?: string
+  flex?: string
   overflow?: string
+  position?: string
+  left?: string
+  top?: string
+}
+
+export type DropPlacement = 'before' | 'after' | 'inside'
+
+export interface RectLike {
+  left: number
+  top: number
+  width: number
+  height: number
+  right: number
+  bottom: number
+}
+
+export interface DropHitChild {
+  id: string
+  rect: RectLike
+}
+
+export interface DropHit {
+  id: string | 'root'
+  rect: RectLike
+  children: DropHitChild[]
+}
+
+export interface DropSlot {
+  parentId: string | null
+  index: number
+  placement: DropPlacement
+  refId: string | 'root'
+  axis: 'x' | 'y'
 }
 
 export interface CanvasNode {

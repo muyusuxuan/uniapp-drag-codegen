@@ -12,6 +12,7 @@ import NodeTree from '@/components/editor/NodeTree.vue'
 import PropertyPanel from '@/components/editor/PropertyPanel.vue'
 import PhonePreview from '@/components/editor/PhonePreview.vue'
 import DragGhost from '@/components/editor/DragGhost.vue'
+import DropIndicator from '@/components/editor/DropIndicator.vue'
 
 const props = defineProps<{ modeId: string }>()
 const route = useRoute()
@@ -43,13 +44,13 @@ function onKey(event: KeyboardEvent) {
 }
 
 function onPointerMove(event: PointerEvent | MouseEvent) {
-  if (!store.draggingType && !store.draggingNodeId) return
+  if (!store.draggingType && !store.draggingNodeId && !store.resizing) return
   const el = document.elementFromPoint(event.clientX, event.clientY)
   store.movePointer(event.clientX, event.clientY, el)
 }
 
 function onPointerUp(event: PointerEvent | MouseEvent) {
-  if (!store.draggingType && !store.draggingNodeId && !store.pointerDragging) return
+  if (!store.draggingType && !store.draggingNodeId && !store.pointerDragging && !store.resizing) return
   const el = document.elementFromPoint(event.clientX, event.clientY)
   store.endPointer(el)
 }
@@ -77,6 +78,15 @@ async function exportProject() {
   downloadBlob(blob, `${folder}.zip`)
   store.notify('已开始下载完整工程')
 }
+
+function onStageDragOver(event: DragEvent) {
+  allowDrop(event, store.draggingNodeId ? 'move' : 'copy')
+}
+
+function onStageDrop(event: DragEvent) {
+  event.preventDefault()
+  store.dropAtPoint(event.clientX, event.clientY, event)
+}
 </script>
 
 <template>
@@ -91,8 +101,8 @@ async function exportProject() {
         <button type="button" @click="store.loadExample">载入示例</button>
         <button type="button" @click="store.clearCanvas">清空画布</button>
         <button type="button" @click="store.duplicateSelected">复制</button>
-        <button type="button" @click="store.moveSelected(-1)">上移</button>
-        <button type="button" @click="store.moveSelected(1)">下移</button>
+        <button type="button" @click="store.moveSelected(-1)">前移</button>
+        <button type="button" @click="store.moveSelected(1)">后移</button>
         <button type="button" class="danger" @click="store.removeSelected">删除</button>
         <button type="button" class="primary" @click="exportProject">导出完整项目</button>
       </div>
@@ -101,15 +111,19 @@ async function exportProject() {
     <aside class="left">
       <BlockPalette />
       <NodeTree />
-      <PropertyPanel />
     </aside>
 
-    <main class="right" data-drop-root="true" @dragover="allowDrop($event, 'copy')" @drop.prevent="store.dropOn('root', $event)">
+    <main class="center" data-drop-root="true" @dragover="onStageDragOver" @drop="onStageDrop">
       <PhonePreview />
     </main>
 
+    <aside class="right">
+      <PropertyPanel />
+    </aside>
+
     <div v-if="toast" class="toast">{{ toast }}</div>
     <DragGhost />
+    <DropIndicator />
   </div>
 </template>
 
@@ -117,7 +131,7 @@ async function exportProject() {
 .editor {
   height: 100vh;
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 268px minmax(0, 1fr) 300px;
   grid-template-rows: 56px 1fr;
 }
 .top {
@@ -153,7 +167,13 @@ async function exportProject() {
   flex-direction: column;
   gap: 18px;
 }
-.right { overflow: hidden; background: linear-gradient(180deg, #eef2fb, #e6ebf5); }
+.center { overflow: hidden; background: linear-gradient(180deg, #eef2fb, #e6ebf5); }
+.right {
+  overflow: auto;
+  background: #fff;
+  border-left: 1px solid var(--line);
+  padding: 16px;
+}
 .toast {
   position: fixed;
   bottom: 24px;

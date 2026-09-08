@@ -1,13 +1,25 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import type { BlockType, CanvasNode, EditorDocument, Selection } from '@/types/editor'
+import type { BlockType, CanvasNode, DropHit, DropSlot, EditorDocument, Selection } from '@/types/editor'
 import { getMode } from '@/modes/registry'
 import { cloneJson, uid } from '@/utils/helpers'
-import { canHaveChildren, findNode, findParent, insertNode, isDescendant, removeNode } from '@/utils/tree'
+import { canHaveChildren, findNode, findParent, insertNode, moveNodeInTree, removeNode } from '@/utils/tree'
 import { defaultPage, defaultTabBar } from '@/modes/uniapp/factory'
 import { parseDragValue, isBlockType } from '@/utils/dnd'
+import { computeDropSlot, getFlexAxis, isRowContainer, toRectLike } from '@/utils/drop'
 
 const STORAGE_PREFIX = 'uni-codegen-doc:'
+
+export type ResizeEdge = 'e' | 's' | 'se'
+
+export interface ResizeState {
+  id: string
+  edge: ResizeEdge
+  startX: number
+  startY: number
+  startW: number
+  startH: number
+}
 
 function emptyDoc(modeId: string): EditorDocument {
   return {
@@ -31,18 +43,29 @@ function loadDoc(modeId: string): EditorDocument {
   return emptyDoc(modeId)
 }
 
+function collectChildHits(el: HTMLElement): DropHit['children'] {
+  const children: DropHit['children'] = []
+  el.querySelectorAll<HTMLElement>(':scope > [data-node-id]').forEach((child) => {
+    const id = child.dataset.nodeId
+    if (!id) return
+    children.push({ id, rect: toRectLike(child.getBoundingClientRect()) })
+  })
+  return children
+}
+
 export const useEditorStore = defineStore('editor', () => {
   const doc = ref<EditorDocument>(emptyDoc('uniapp'))
   const selection = ref<Selection>({ kind: 'page' })
   const draggingType = ref<BlockType | null>(null)
   const draggingNodeId = ref<string | null>(null)
-  const hoverDropId = ref<string | 'root' | null>(null)
+  const hoverDropSlot = ref<DropSlot | null>(null)
   const toast = ref('')
   const pointerDragging = ref(false)
   const ghostX = ref(0)
   const ghostY = ref(0)
   const pressX = ref(0)
   const pressY = ref(0)
+  const resizing = ref<ResizeState | null>(null)
   let suppressClick = false
 
   const mode = computed(() => getMode(doc.value.modeId))
@@ -50,6 +73,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (selection.value?.kind !== 'node') return null
     return findNode(doc.value.nodes, selection.value.id)
   })
+  const hoverDropId = computed(() => hoverDropSlot.value?.refId ?? null)
 
   function persist() {
     localStorage.setItem(STORAGE_PREFIX + doc.value.modeId, JSON.stringify(doc.value))
@@ -75,6 +99,16 @@ export const useEditorStore = defineStore('editor', () => {
     selection.value = next
   }
 
+  function adaptNodeForParent(node: CanvasNode, parentId: string | null) {
+    if (!parentId) return
+    const parent = findNode(doc.value.nodes, parentId)
+    if (!parent || !isRowContainer(parent)) return
+    if (node.style.width === '100%') {
+      node.style.width = 'auto'
+      if (!node.style.flex) node.style.flex = '1'
+    }
+  }
+
   function addNode(type: BlockType, parentId?: string | null, index?: number) {
     const generator = mode.value
     if (!generator) return
@@ -90,56 +124,83 @@ export const useEditorStore = defineStore('editor', () => {
     }
     const node = generator.createNode(type)
     let targetParent = parentId ?? null
-    if (targetParent == null && selection.value?.kind === 'node') {
+    let targetIndex = index
+    if (targetParent == null && index == null && selection.value?.kind === 'node') {
       const current = findNode(doc.value.nodes, selection.value.id)
-      if (current && canHaveChildren(current.type)) targetParent = current.id
+      if (current && canHaveChildren(current.type)) {
+        targetParent = current.id
+      } else if (current) {
+        const loc = findParent(doc.value.nodes, current.id)
+        targetParent = loc?.parent?.id ?? null
+        targetIndex = loc ? loc.index + 1 : undefined
+      }
     }
-    insertNode(doc.value.nodes, node, targetParent, index)
+    adaptNodeForParent(node, targetParent)
+    insertNode(doc.value.nodes, node, targetParent, targetIndex)
     selection.value = { kind: 'node', id: node.id }
     notify(`已添加「${node.name}」`)
   }
 
-  function dropOn(targetId: string | 'root', event?: DragEvent) {
+  function dropOnSlot(slot: DropSlot, event?: DragEvent) {
     const parsed = parseDragValue(event?.dataTransfer?.getData('text/plain') || '')
     const type = draggingType.value ?? (parsed?.kind === 'block' ? parsed.type : null)
     const movingId = draggingNodeId.value ?? (parsed?.kind === 'node' ? parsed.id : null)
     draggingType.value = null
     draggingNodeId.value = null
-    hoverDropId.value = null
+    hoverDropSlot.value = null
 
     if (type) {
       if (type === 'tab-bar') {
         addNode('tab-bar')
         return
       }
-      const parentId = targetId === 'root' ? null : targetId
-      if (parentId) {
-        const parent = findNode(doc.value.nodes, parentId)
-        if (!parent || !canHaveChildren(parent.type)) {
-          addNode(type, null)
-          return
-        }
-      }
-      addNode(type, parentId)
+      addNode(type, slot.parentId, slot.index)
       return
     }
 
     if (movingId) {
-      moveNode(movingId, targetId === 'root' ? null : targetId)
+      moveNode(movingId, slot.parentId, slot.index)
     }
   }
 
-  function moveNode(id: string, parentId: string | null, index?: number) {
-    if (id === parentId) return
-    const loc = findParent(doc.value.nodes, id)
-    if (!loc) return
-    const node = loc.list[loc.index]
-    if (parentId) {
-      const parent = findNode(doc.value.nodes, parentId)
-      if (!parent || !canHaveChildren(parent.type) || isDescendant(node, parentId)) return
+  function dropOn(targetId: string | 'root', event?: DragEvent) {
+    if (hoverDropSlot.value) {
+      dropOnSlot(hoverDropSlot.value, event)
+      return
     }
-    loc.list.splice(loc.index, 1)
-    insertNode(doc.value.nodes, node, parentId, index)
+    if (targetId === 'root') {
+      dropOnSlot({ parentId: null, index: doc.value.nodes.length, placement: 'inside', refId: 'root', axis: 'y' }, event)
+      return
+    }
+    const parent = findNode(doc.value.nodes, targetId)
+    if (!parent || !canHaveChildren(parent.type)) {
+      const loc = findParent(doc.value.nodes, targetId)
+      dropOnSlot(
+        {
+          parentId: loc?.parent?.id ?? null,
+          index: loc ? loc.index + 1 : doc.value.nodes.length,
+          placement: 'after',
+          refId: targetId,
+          axis: getFlexAxis(loc?.parent?.style),
+        },
+        event,
+      )
+      return
+    }
+    dropOnSlot(
+      {
+        parentId: targetId,
+        index: parent.children?.length ?? 0,
+        placement: 'inside',
+        refId: targetId,
+        axis: getFlexAxis(parent.style),
+      },
+      event,
+    )
+  }
+
+  function moveNode(id: string, parentId: string | null, index?: number) {
+    if (!moveNodeInTree(doc.value.nodes, id, parentId, index)) return
     selection.value = { kind: 'node', id }
   }
 
@@ -210,19 +271,46 @@ export const useEditorStore = defineStore('editor', () => {
     node.props[key] = value
   }
 
-  function resolveDropId(el: Element | null): string | 'root' | null {
+  function collectHit(el: Element | null): DropHit | null {
     if (!el) return null
-    const hit = el.closest('[data-drop-id]') as HTMLElement | null
-    if (hit?.dataset.dropId) {
-      const id = hit.dataset.dropId
-      if (id === 'root') return 'root'
-      const node = findNode(doc.value.nodes, id)
-      if (node && canHaveChildren(node.type)) return id
-      const loc = findParent(doc.value.nodes, id)
-      return loc?.parent?.id ?? 'root'
+    const nodeEl = el.closest('[data-node-id]') as HTMLElement | null
+    const rootEl = el.closest('[data-drop-id="root"]') as HTMLElement | null
+    if (nodeEl?.dataset.nodeId) {
+      return {
+        id: nodeEl.dataset.nodeId,
+        rect: toRectLike(nodeEl.getBoundingClientRect()),
+        children: collectChildHits(nodeEl),
+      }
     }
-    if (el.closest('[data-drop-root]')) return 'root'
+    if (rootEl) {
+      return {
+        id: 'root',
+        rect: toRectLike(rootEl.getBoundingClientRect()),
+        children: collectChildHits(rootEl),
+      }
+    }
     return null
+  }
+
+  function resolveSlotFromPoint(x: number, y: number, el?: Element | null): DropSlot | null {
+    const hitEl = el ?? document.elementFromPoint(x, y)
+    return computeDropSlot({
+      nodes: doc.value.nodes,
+      hit: collectHit(hitEl),
+      x,
+      y,
+      draggingNodeId: draggingNodeId.value,
+    })
+  }
+
+  function hoverAt(x: number, y: number, el?: Element | null) {
+    hoverDropSlot.value = resolveSlotFromPoint(x, y, el)
+  }
+
+  function dropAtPoint(x: number, y: number, event?: DragEvent, el?: Element | null) {
+    const slot = resolveSlotFromPoint(x, y, el ?? (event ? document.elementFromPoint(x, y) : null))
+    if (slot) dropOnSlot(slot, event)
+    else cancelDrag()
   }
 
   function beginPointer(kind: 'block' | 'node', value: string, x: number, y: number) {
@@ -241,23 +329,29 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function movePointer(x: number, y: number, el: Element | null) {
+    if (resizing.value) {
+      moveResize(x, y)
+      return
+    }
     if (!draggingType.value && !draggingNodeId.value) return
     ghostX.value = x
     ghostY.value = y
     const dist = Math.hypot(x - pressX.value, y - pressY.value)
     if (dist > 6) pointerDragging.value = true
-    if (pointerDragging.value) hoverDropId.value = resolveDropId(el)
+    if (pointerDragging.value) hoverDropSlot.value = resolveSlotFromPoint(x, y, el)
   }
 
   function endPointer(el: Element | null) {
-    const target = resolveDropId(el)
-    const dragged = pointerDragging.value
-    if (dragged && target) dropOn(target)
-    else {
-      draggingType.value = null
-      draggingNodeId.value = null
-      hoverDropId.value = null
+    if (resizing.value) {
+      endResize()
+      return
     }
+    const dragged = pointerDragging.value
+    const x = ghostX.value
+    const y = ghostY.value
+    const slot = dragged ? resolveSlotFromPoint(x, y, el) : null
+    if (dragged && slot) dropOnSlot(slot)
+    else cancelDrag()
     pointerDragging.value = false
     if (dragged) {
       suppressClick = true
@@ -267,10 +361,41 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function cancelDrag() {
+    draggingType.value = null
+    draggingNodeId.value = null
+    hoverDropSlot.value = null
+    pointerDragging.value = false
+  }
+
   function consumeClickSuppressed(): boolean {
     if (!suppressClick) return false
     suppressClick = false
     return true
+  }
+
+  function beginResize(id: string, edge: ResizeEdge, x: number, y: number, width: number, height: number) {
+    resizing.value = { id, edge, startX: x, startY: y, startW: width, startH: height }
+    selection.value = { kind: 'node', id }
+  }
+
+  function moveResize(x: number, y: number) {
+    const state = resizing.value
+    if (!state) return
+    const node = findNode(doc.value.nodes, state.id)
+    if (!node) return
+    const dx = x - state.startX
+    const dy = y - state.startY
+    if (state.edge === 'e' || state.edge === 'se') {
+      node.style.width = `${Math.max(24, Math.round(state.startW + dx))}px`
+    }
+    if (state.edge === 's' || state.edge === 'se') {
+      node.style.height = `${Math.max(16, Math.round(state.startH + dy))}px`
+    }
+  }
+
+  function endResize() {
+    resizing.value = null
   }
 
   return {
@@ -279,16 +404,21 @@ export const useEditorStore = defineStore('editor', () => {
     draggingType,
     draggingNodeId,
     hoverDropId,
+    hoverDropSlot,
     toast,
     pointerDragging,
     ghostX,
     ghostY,
+    resizing,
     mode,
     selectedNode,
     initMode,
     select,
     addNode,
     dropOn,
+    dropOnSlot,
+    dropAtPoint,
+    hoverAt,
     moveNode,
     moveSelected,
     duplicateSelected,
@@ -300,7 +430,11 @@ export const useEditorStore = defineStore('editor', () => {
     beginPointer,
     movePointer,
     endPointer,
+    cancelDrag,
     consumeClickSuppressed,
+    beginResize,
+    moveResize,
+    endResize,
     notify,
   }
 })
